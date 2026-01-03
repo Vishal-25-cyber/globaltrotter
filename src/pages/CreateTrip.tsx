@@ -8,7 +8,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
+import { api } from '@/lib/api';
 import { 
   MapPin, 
   CalendarIcon,
@@ -91,10 +91,7 @@ export default function CreateTrip() {
 
   const fetchCities = async () => {
     try {
-      const { data, error } = await supabase
-        .from('cities')
-        .select('id, name, country, image_url, avg_daily_budget_inr')
-        .order('name');
+      const { data, error } = await api.getCities();
 
       if (error) throw error;
       setCities(data || []);
@@ -107,11 +104,7 @@ export default function CreateTrip() {
 
   const fetchPlaces = async (cityId: string) => {
     try {
-      const { data, error } = await supabase
-        .from('tourist_places')
-        .select('*')
-        .eq('city_id', cityId)
-        .order('category');
+      const { data, error } = await api.getTouristPlaces(cityId);
 
       if (error) throw error;
       setPlaces(data || []);
@@ -151,28 +144,25 @@ export default function CreateTrip() {
       const days = differenceInDays(endDate, startDate) + 1;
 
       // Create trip
-      const { data: trip, error: tripError } = await supabase
-        .from('trips')
-        .insert({
-          user_id: user.id,
-          city_id: selectedCity.id,
-          title,
-          start_date: format(startDate, 'yyyy-MM-dd'),
-          end_date: format(endDate, 'yyyy-MM-dd'),
-          total_budget_inr: totalBudget,
-          status: 'planning'
-        })
-        .select()
-        .single();
+      const { data: tripData, error: tripError } = await api.createTrip({
+        user_id: user.id,
+        city_id: selectedCity.id,
+        title,
+        start_date: format(startDate, 'yyyy-MM-dd'),
+        end_date: format(endDate, 'yyyy-MM-dd'),
+        total_budget_inr: totalBudget,
+        status: 'planning'
+      });
 
       if (tripError) throw tripError;
+      const tripId = tripData.id;
 
       // Create itinerary items
       const selectedPlaceData = places.filter(p => selectedPlaces.includes(p.id));
       const itemsPerDay = Math.ceil(selectedPlaceData.length / days);
       
       const itineraryItems = selectedPlaceData.map((place, index) => ({
-        trip_id: trip.id,
+        trip_id: tripId,
         tourist_place_id: place.id,
         day_number: Math.floor(index / itemsPerDay) + 1,
         activity_name: place.name,
@@ -182,55 +172,50 @@ export default function CreateTrip() {
       }));
 
       if (itineraryItems.length > 0) {
-        const { error: itemsError } = await supabase
-          .from('itinerary_items')
-          .insert(itineraryItems);
-
+        const { error: itemsError } = await api.createItineraryItems(itineraryItems);
         if (itemsError) throw itemsError;
       }
 
       // Create budget items
       const budgetItems = [
         {
-          trip_id: trip.id,
-          category: 'accommodation' as const,
+          trip_id: tripId,
+          category: 'accommodation',
           description: 'Hotel/Stay',
           amount_inr: Math.round(days * selectedCity.avg_daily_budget_inr * 0.4),
           is_estimated: true
         },
         {
-          trip_id: trip.id,
-          category: 'transport' as const,
+          trip_id: tripId,
+          category: 'transport',
           description: 'Local transport & travel',
           amount_inr: Math.round(days * selectedCity.avg_daily_budget_inr * 0.2),
           is_estimated: true
         },
         {
-          trip_id: trip.id,
-          category: 'food' as const,
+          trip_id: tripId,
+          category: 'food',
           description: 'Meals & dining',
           amount_inr: Math.round(days * selectedCity.avg_daily_budget_inr * 0.25),
           is_estimated: true
         },
         {
-          trip_id: trip.id,
-          category: 'activities' as const,
+          trip_id: tripId,
+          category: 'activities',
           description: 'Entry fees & activities',
           amount_inr: places.filter(p => selectedPlaces.includes(p.id)).reduce((sum, p) => sum + p.entry_fee_inr, 0),
           is_estimated: true
         },
         {
-          trip_id: trip.id,
-          category: 'miscellaneous' as const,
+          trip_id: tripId,
+          category: 'miscellaneous',
           description: 'Shopping & miscellaneous',
           amount_inr: Math.round(days * selectedCity.avg_daily_budget_inr * 0.15),
           is_estimated: true
         }
       ];
 
-      const { error: budgetError } = await supabase
-        .from('budget_items')
-        .insert(budgetItems);
+      const { error: budgetError } = await api.createBudgetItems(budgetItems);
 
       if (budgetError) throw budgetError;
 
@@ -239,7 +224,7 @@ export default function CreateTrip() {
         description: 'Your itinerary and budget are ready.',
       });
 
-      navigate(`/trip/${trip.id}`);
+      navigate(`/trip/${tripId}`);
     } catch (err) {
       console.error('Error creating trip:', err);
       toast({
