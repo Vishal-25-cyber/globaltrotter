@@ -26,20 +26,21 @@ export function Navbar() {
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-2 group">
+          {/* Logo */}
+          <div className="flex items-center gap-2 group cursor-default">
             <div className="relative">
               <Globe className="w-8 h-8 text-primary transition-transform group-hover:rotate-12" />
               <MapPin className="w-4 h-4 text-accent absolute -top-1 -right-1" />
             </div>
             <span className="text-xl font-bold text-gradient-hero">TripNex</span>
-          </Link>
+          </div>
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center gap-6">
             {user ? (
               <>
                 <Link to="/dashboard" className="text-muted-foreground hover:text-foreground transition-colors font-medium">
-                  My Trips
+                  Planned Trips
                 </Link>
                 <Link to="/explore" className="text-muted-foreground hover:text-foreground transition-colors font-medium">
                   Explore
@@ -52,11 +53,7 @@ export function Navbar() {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-48">
-                    <DropdownMenuItem onClick={() => navigate('/dashboard')}>
-                      <MapPin className="w-4 h-4 mr-2" />
-                      My Trips
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
+
                     <DropdownMenuItem onClick={handleSignOut} className="text-destructive">
                       <LogOut className="w-4 h-4 mr-2" />
                       Sign Out
@@ -98,7 +95,7 @@ export function Navbar() {
                     className="px-4 py-2 text-foreground hover:bg-muted rounded-lg transition-colors"
                     onClick={() => setMobileMenuOpen(false)}
                   >
-                    My Trips
+                    Planned Trips
                   </Link>
                   <Link
                     to="/explore"

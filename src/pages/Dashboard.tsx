@@ -4,10 +4,10 @@ import { Navbar } from '@/components/Navbar';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
-import { 
-  Plus, 
-  MapPin, 
-  Calendar, 
+import {
+  Plus,
+  MapPin,
+  Calendar,
   Wallet,
   ArrowRight,
   Loader2,
@@ -91,117 +91,113 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <Navbar />
+    <main className="pt-24 pb-16">
+      <div className="container mx-auto px-4">
+        {/* Header Section */}
+        <div className="bg-black/20 backdrop-blur-md rounded-3xl p-8 mb-12 flex flex-col md:flex-row md:items-center justify-between gap-6 border border-white/10 shadow-xl animate-fade-in-up">
+          <div>
+            <h1 className="text-3xl md:text-4xl font-bold text-white mb-2">My Trips</h1>
+            <p className="text-white/90 text-lg">
+              Manage your travel plans and itineraries.
+            </p>
+          </div>
+          <Button asChild variant="hero" size="lg" className="shadow-lg hover:scale-105 transition-transform">
+            <Link to="/create-trip">
+              <Plus className="w-5 h-5 mr-2" />
+              Plan New Trip
+            </Link>
+          </Button>
+        </div>
 
-      <main className="pt-24 pb-16">
-        <div className="container mx-auto px-4">
-          {/* Header */}
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-            <div>
-              <h1 className="text-3xl font-bold text-foreground">My Trips</h1>
-              <p className="text-muted-foreground mt-1">
-                Manage your travel plans and itineraries
-              </p>
+        {/* Trips Grid */}
+        {loading ? (
+          <div className="flex items-center justify-center py-20">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          </div>
+        ) : trips.length === 0 ? (
+          <div className="text-center py-20 bg-black/40 backdrop-blur-md rounded-3xl p-8 border border-white/10 shadow-xl">
+            <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-6">
+              <Plane className="w-10 h-10 text-primary" />
             </div>
-            <Button asChild variant="hero">
+            <h2 className="text-2xl font-bold text-white mb-2">
+              No trips yet
+            </h2>
+            <p className="text-white/80 mb-6 max-w-md mx-auto">
+              Start planning your first adventure! Pick a destination and we'll help you create the perfect itinerary.
+            </p>
+            <Button asChild variant="hero" size="lg">
               <Link to="/create-trip">
                 <Plus className="w-5 h-5" />
-                Plan New Trip
+                Plan Your First Trip
               </Link>
             </Button>
           </div>
+        ) : (
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {trips.map((trip) => (
+              <Link
+                key={trip.id}
+                to={`/trip/${trip.id}`}
+                className="travel-card group bg-black/20 backdrop-blur-md border border-white/10"
+              >
+                {/* Image */}
+                <div className="relative h-48 overflow-hidden">
+                  {trip.city.image_url ? (
+                    <img
+                      src={trip.city.image_url}
+                      alt={trip.city.name}
+                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-gradient-hero" />
+                  )}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
 
-          {/* Trips Grid */}
-          {loading ? (
-            <div className="flex items-center justify-center py-20">
-              <Loader2 className="w-8 h-8 animate-spin text-primary" />
-            </div>
-          ) : trips.length === 0 ? (
-            <div className="text-center py-20">
-              <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-6">
-                <Plane className="w-10 h-10 text-primary" />
-              </div>
-              <h2 className="text-2xl font-bold text-foreground mb-2">
-                No trips yet
-              </h2>
-              <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-                Start planning your first adventure! Pick a destination and we'll help you create the perfect itinerary.
-              </p>
-              <Button asChild variant="hero" size="lg">
-                <Link to="/create-trip">
-                  <Plus className="w-5 h-5" />
-                  Plan Your First Trip
-                </Link>
-              </Button>
-            </div>
-          ) : (
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {trips.map((trip) => (
-                <Link
-                  key={trip.id}
-                  to={`/trip/${trip.id}`}
-                  className="travel-card group"
-                >
-                  {/* Image */}
-                  <div className="relative h-48 overflow-hidden">
-                    {trip.city.image_url ? (
-                      <img
-                        src={trip.city.image_url}
-                        alt={trip.city.name}
-                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                      />
-                    ) : (
-                      <div className="w-full h-full bg-gradient-hero" />
-                    )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-                    
-                    {/* Status badge */}
-                    <div className="absolute top-4 right-4">
-                      <span className={`px-3 py-1 rounded-full text-xs font-medium capitalize ${getStatusColor(trip.status)}`}>
-                        {trip.status}
+                  {/* Status badge */}
+                  <div className="absolute top-4 right-4">
+                    <span className={`px-3 py-1 rounded-full text-xs font-medium capitalize ${getStatusColor(trip.status)}`}>
+                      {trip.status}
+                    </span>
+                  </div>
+
+                  {/* City name */}
+                  <div className="absolute bottom-4 left-4 right-4">
+                    <div className="flex items-center gap-2 text-white">
+                      <MapPin className="w-4 h-4" />
+                      <span className="font-medium">{trip.city.name}, {trip.city.country}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Content */}
+                <div className="p-5">
+                  <h3 className="text-lg font-semibold text-white mb-3 group-hover:text-primary transition-colors">
+                    {trip.title}
+                  </h3>
+
+                  <div className="flex flex-col gap-2 text-sm text-white/70">
+                    <div className="flex items-center gap-2">
+                      <Calendar className="w-4 h-4" />
+                      <span>
+                        {format(new Date(trip.start_date), 'MMM d')} - {format(new Date(trip.end_date), 'MMM d, yyyy')}
                       </span>
                     </div>
-                    
-                    {/* City name */}
-                    <div className="absolute bottom-4 left-4 right-4">
-                      <div className="flex items-center gap-2 text-white">
-                        <MapPin className="w-4 h-4" />
-                        <span className="font-medium">{trip.city.name}, {trip.city.country}</span>
-                      </div>
+                    <div className="flex items-center gap-2">
+                      <Wallet className="w-4 h-4" />
+                      <span>₹{trip.total_budget_inr.toLocaleString('en-IN')}</span>
                     </div>
                   </div>
 
-                  {/* Content */}
-                  <div className="p-5">
-                    <h3 className="text-lg font-semibold text-foreground mb-3 group-hover:text-primary transition-colors">
-                      {trip.title}
-                    </h3>
-
-                    <div className="flex flex-col gap-2 text-sm text-muted-foreground">
-                      <div className="flex items-center gap-2">
-                        <Calendar className="w-4 h-4" />
-                        <span>
-                          {format(new Date(trip.start_date), 'MMM d')} - {format(new Date(trip.end_date), 'MMM d, yyyy')}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Wallet className="w-4 h-4" />
-                        <span>₹{trip.total_budget_inr.toLocaleString('en-IN')}</span>
-                      </div>
-                    </div>
-
-                    <div className="mt-4 flex items-center text-primary font-medium text-sm group-hover:gap-2 transition-all">
-                      View Details
-                      <ArrowRight className="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" />
-                    </div>
+                  <div className="mt-4 flex items-center text-primary font-medium text-sm group-hover:gap-2 transition-all">
+                    View Details
+                    <ArrowRight className="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" />
                   </div>
-                </Link>
-              ))}
-            </div>
-          )}
-        </div>
-      </main>
-    </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
+      </div>
+    </main>
   );
 }

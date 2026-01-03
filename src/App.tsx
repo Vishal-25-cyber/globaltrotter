@@ -15,6 +15,8 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
+import { AppLayout } from "./components/AppLayout";
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
@@ -25,10 +27,15 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/auth" element={<Auth />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/explore" element={<Explore />} />
-            <Route path="/create-trip" element={<CreateTrip />} />
-            <Route path="/trip/:id" element={<TripDetails />} />
+
+            {/* Protected Routes with Global Background */}
+            <Route element={<AppLayout />}>
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/explore" element={<Explore />} />
+              <Route path="/create-trip" element={<CreateTrip />} />
+              <Route path="/trip/:id" element={<TripDetails />} />
+            </Route>
+
             <Route path="/shared/:shareCode" element={<SharedTrip />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />

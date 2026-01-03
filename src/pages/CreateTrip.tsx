@@ -9,8 +9,8 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { 
-  MapPin, 
+import {
+  MapPin,
   CalendarIcon,
   ArrowRight,
   ArrowLeft,
@@ -128,13 +128,13 @@ export default function CreateTrip() {
 
   const calculateBudget = () => {
     if (!startDate || !endDate || !selectedCity) return 0;
-    
+
     const days = differenceInDays(endDate, startDate) + 1;
     const dailyBudget = selectedCity.avg_daily_budget_inr;
     const placeFees = places
       .filter(p => selectedPlaces.includes(p.id))
       .reduce((sum, p) => sum + p.entry_fee_inr, 0);
-    
+
     return (days * dailyBudget) + placeFees;
   };
 
@@ -142,7 +142,7 @@ export default function CreateTrip() {
     if (!user || !selectedCity || !startDate || !endDate) return;
 
     setCreating(true);
-    
+
     try {
       const title = tripTitle || `Trip to ${selectedCity.name}`;
       const totalBudget = calculateBudget();
@@ -168,7 +168,7 @@ export default function CreateTrip() {
       // Create itinerary items
       const selectedPlaceData = places.filter(p => selectedPlaces.includes(p.id));
       const itemsPerDay = Math.ceil(selectedPlaceData.length / days);
-      
+
       const itineraryItems = selectedPlaceData.map((place, index) => ({
         trip_id: trip.id,
         tourist_place_id: place.id,
@@ -287,23 +287,21 @@ export default function CreateTrip() {
   const days = startDate && endDate ? differenceInDays(endDate, startDate) + 1 : 0;
 
   return (
-    <div className="min-h-screen bg-background">
-      <Navbar />
-
-      <main className="pt-24 pb-16">
-        <div className="container mx-auto px-4 max-w-4xl">
+    <main className="pt-24 pb-16">
+      <div className="container mx-auto px-4 max-w-4xl">
+        <div className="bg-black/40 backdrop-blur-md rounded-3xl p-6 md:p-10 border border-white/10 shadow-2xl">
           {/* Progress */}
           <div className="flex items-center justify-center gap-2 mb-12">
             {['destination', 'dates', 'places', 'review'].map((s, i) => (
               <div key={s} className="flex items-center">
                 <div
                   className={cn(
-                    "w-10 h-10 rounded-full flex items-center justify-center text-sm font-semibold transition-all",
+                    "w-10 h-10 rounded-full flex items-center justify-center text-sm font-semibold transition-all border border-white/10",
                     step === s
-                      ? "bg-primary text-primary-foreground"
+                      ? "bg-primary text-primary-foreground shadow-[0_0_15px_rgba(var(--primary),0.5)]"
                       : ['destination', 'dates', 'places', 'review'].indexOf(step) > i
-                      ? "bg-primary/20 text-primary"
-                      : "bg-muted text-muted-foreground"
+                        ? "bg-primary/20 text-primary"
+                        : "bg-white/5 text-white/40"
                   )}
                 >
                   {['destination', 'dates', 'places', 'review'].indexOf(step) > i ? (
@@ -317,7 +315,7 @@ export default function CreateTrip() {
                     "w-12 h-1 mx-1 rounded-full",
                     ['destination', 'dates', 'places', 'review'].indexOf(step) > i
                       ? "bg-primary/40"
-                      : "bg-muted"
+                      : "bg-white/10"
                   )} />
                 )}
               </div>
@@ -325,13 +323,13 @@ export default function CreateTrip() {
           </div>
 
           {/* Step Content */}
-          <div className="animate-fade-in">
+          <div className="animate-fade-in text-white">
             {step === 'destination' && (
               <div>
-                <h1 className="text-3xl font-bold text-foreground text-center mb-2">
+                <h1 className="text-3xl font-bold text-white text-center mb-2">
                   Where do you want to go?
                 </h1>
-                <p className="text-muted-foreground text-center mb-8">
+                <p className="text-white/70 text-center mb-8">
                   Choose your dream destination
                 </p>
 
@@ -346,10 +344,10 @@ export default function CreateTrip() {
                         key={city.id}
                         onClick={() => setSelectedCity(city)}
                         className={cn(
-                          "relative rounded-2xl overflow-hidden h-40 transition-all",
+                          "relative rounded-2xl overflow-hidden h-40 transition-all border border-white/10",
                           selectedCity?.id === city.id
-                            ? "ring-4 ring-primary ring-offset-2 scale-[1.02]"
-                            : "hover:scale-[1.02]"
+                            ? "ring-4 ring-primary ring-offset-2 ring-offset-black/20 scale-[1.02]"
+                            : "hover:scale-[1.02] hover:border-white/30"
                         )}
                       >
                         {city.image_url ? (
@@ -361,7 +359,7 @@ export default function CreateTrip() {
                         ) : (
                           <div className="w-full h-full bg-gradient-hero" />
                         )}
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
                         <div className="absolute bottom-4 left-4 right-4 text-left">
                           <div className="flex items-center gap-1 text-white/80 text-sm">
                             <MapPin className="w-3 h-3" />
@@ -383,42 +381,42 @@ export default function CreateTrip() {
 
             {step === 'dates' && (
               <div className="max-w-lg mx-auto">
-                <h1 className="text-3xl font-bold text-foreground text-center mb-2">
+                <h1 className="text-3xl font-bold text-white text-center mb-2">
                   When are you traveling?
                 </h1>
-                <p className="text-muted-foreground text-center mb-8">
+                <p className="text-white/70 text-center mb-8">
                   Select your travel dates
                 </p>
 
                 <div className="space-y-6">
                   <div>
-                    <Label htmlFor="tripTitle">Trip Name (optional)</Label>
+                    <Label htmlFor="tripTitle" className="text-white">Trip Name (optional)</Label>
                     <Input
                       id="tripTitle"
                       placeholder={`Trip to ${selectedCity?.name}`}
                       value={tripTitle}
                       onChange={(e) => setTripTitle(e.target.value)}
-                      className="mt-2"
+                      className="mt-2 bg-white/5 border-white/10 text-white placeholder:text-white/30 focus:bg-white/10"
                     />
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <Label>Start Date</Label>
+                      <Label className="text-white">Start Date</Label>
                       <Popover>
                         <PopoverTrigger asChild>
                           <Button
                             variant="outline"
                             className={cn(
-                              "w-full justify-start text-left font-normal mt-2",
-                              !startDate && "text-muted-foreground"
+                              "w-full justify-start text-left font-normal mt-2 bg-white/5 border-white/10 text-white hover:bg-white/10 hover:text-white",
+                              !startDate && "text-white/40"
                             )}
                           >
                             <CalendarIcon className="mr-2 h-4 w-4" />
                             {startDate ? format(startDate, 'PPP') : 'Pick a date'}
                           </Button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0">
+                        <PopoverContent className="w-auto p-0 bg-zinc-900 border-white/10 text-white">
                           <Calendar
                             mode="single"
                             selected={startDate}
@@ -430,33 +428,35 @@ export default function CreateTrip() {
                             }}
                             disabled={(date) => date < new Date()}
                             initialFocus
+                            className="bg-zinc-900 text-white"
                           />
                         </PopoverContent>
                       </Popover>
                     </div>
 
                     <div>
-                      <Label>End Date</Label>
+                      <Label className="text-white">End Date</Label>
                       <Popover>
                         <PopoverTrigger asChild>
                           <Button
                             variant="outline"
                             className={cn(
-                              "w-full justify-start text-left font-normal mt-2",
-                              !endDate && "text-muted-foreground"
+                              "w-full justify-start text-left font-normal mt-2 bg-white/5 border-white/10 text-white hover:bg-white/10 hover:text-white",
+                              !endDate && "text-white/40"
                             )}
                           >
                             <CalendarIcon className="mr-2 h-4 w-4" />
                             {endDate ? format(endDate, 'PPP') : 'Pick a date'}
                           </Button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0">
+                        <PopoverContent className="w-auto p-0 bg-zinc-900 border-white/10 text-white">
                           <Calendar
                             mode="single"
                             selected={endDate}
                             onSelect={setEndDate}
                             disabled={(date) => date < (startDate || new Date())}
                             initialFocus
+                            className="bg-zinc-900 text-white"
                           />
                         </PopoverContent>
                       </Popover>
@@ -464,7 +464,7 @@ export default function CreateTrip() {
                   </div>
 
                   {days > 0 && (
-                    <div className="text-center p-4 rounded-xl bg-primary/10">
+                    <div className="text-center p-4 rounded-xl bg-primary/10 border border-primary/20">
                       <p className="text-primary font-semibold">
                         {days} {days === 1 ? 'day' : 'days'} trip
                       </p>
@@ -476,17 +476,17 @@ export default function CreateTrip() {
 
             {step === 'places' && (
               <div>
-                <h1 className="text-3xl font-bold text-foreground text-center mb-2">
+                <h1 className="text-3xl font-bold text-white text-center mb-2">
                   What do you want to see?
                 </h1>
-                <p className="text-muted-foreground text-center mb-8">
+                <p className="text-white/70 text-center mb-8">
                   Select the places you'd like to visit in {selectedCity?.name}
                 </p>
 
                 {places.length === 0 ? (
                   <div className="text-center py-12">
                     <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-4" />
-                    <p className="text-muted-foreground">Loading places...</p>
+                    <p className="text-white/50">Loading places...</p>
                   </div>
                 ) : (
                   <div className="grid md:grid-cols-2 gap-4">
@@ -497,17 +497,17 @@ export default function CreateTrip() {
                         className={cn(
                           "p-4 rounded-xl border-2 text-left transition-all",
                           selectedPlaces.includes(place.id)
-                            ? "border-primary bg-primary/5"
-                            : "border-border hover:border-primary/50"
+                            ? "border-primary bg-primary/10"
+                            : "border-white/10 bg-white/5 hover:border-white/30 hover:bg-white/10"
                         )}
                       >
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
-                            <h3 className="font-semibold text-foreground">{place.name}</h3>
-                            <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
+                            <h3 className="font-semibold text-white">{place.name}</h3>
+                            <p className="text-sm text-white/60 mt-1 line-clamp-2">
                               {place.description}
                             </p>
-                            <div className="flex items-center gap-4 mt-3 text-sm text-muted-foreground">
+                            <div className="flex items-center gap-4 mt-3 text-sm text-white/50">
                               <span className="capitalize">{place.category}</span>
                               <span>~{place.avg_time_hours}h</span>
                               {place.entry_fee_inr > 0 && (
@@ -519,7 +519,7 @@ export default function CreateTrip() {
                             "w-6 h-6 rounded-full flex items-center justify-center shrink-0 ml-3",
                             selectedPlaces.includes(place.id)
                               ? "bg-primary text-primary-foreground"
-                              : "border-2 border-muted"
+                              : "border-2 border-white/20"
                           )}>
                             {selectedPlaces.includes(place.id) && (
                               <Check className="w-4 h-4" />
@@ -531,7 +531,7 @@ export default function CreateTrip() {
                   </div>
                 )}
 
-                <p className="text-center text-sm text-muted-foreground mt-6">
+                <p className="text-center text-sm text-white/50 mt-6">
                   {selectedPlaces.length} places selected
                 </p>
               </div>
@@ -539,14 +539,14 @@ export default function CreateTrip() {
 
             {step === 'review' && (
               <div className="max-w-lg mx-auto">
-                <h1 className="text-3xl font-bold text-foreground text-center mb-2">
+                <h1 className="text-3xl font-bold text-white text-center mb-2">
                   Review Your Trip
                 </h1>
-                <p className="text-muted-foreground text-center mb-8">
+                <p className="text-white/70 text-center mb-8">
                   Confirm your trip details
                 </p>
 
-                <div className="travel-card p-6 space-y-6">
+                <div className="bg-black/20 backdrop-blur-md rounded-xl border border-white/10 p-6 space-y-6">
                   {/* Destination */}
                   <div className="flex items-center gap-4">
                     <div className="w-20 h-20 rounded-xl overflow-hidden shrink-0">
@@ -561,36 +561,36 @@ export default function CreateTrip() {
                       )}
                     </div>
                     <div>
-                      <p className="text-sm text-muted-foreground">Destination</p>
-                      <h3 className="text-xl font-bold text-foreground">
+                      <p className="text-sm text-white/50">Destination</p>
+                      <h3 className="text-xl font-bold text-white">
                         {selectedCity?.name}, {selectedCity?.country}
                       </h3>
                     </div>
                   </div>
 
-                  <hr className="border-border" />
+                  <hr className="border-white/10" />
 
                   {/* Dates */}
                   <div>
-                    <p className="text-sm text-muted-foreground mb-1">Travel Dates</p>
-                    <p className="font-semibold text-foreground">
+                    <p className="text-sm text-white/50 mb-1">Travel Dates</p>
+                    <p className="font-semibold text-white">
                       {startDate && format(startDate, 'PPP')} - {endDate && format(endDate, 'PPP')}
                     </p>
                     <p className="text-primary text-sm mt-1">{days} days</p>
                   </div>
 
-                  <hr className="border-border" />
+                  <hr className="border-white/10" />
 
                   {/* Places */}
                   <div>
-                    <p className="text-sm text-muted-foreground mb-2">Places to Visit</p>
+                    <p className="text-sm text-white/50 mb-2">Places to Visit</p>
                     <div className="flex flex-wrap gap-2">
                       {places
                         .filter(p => selectedPlaces.includes(p.id))
                         .map(place => (
                           <span
                             key={place.id}
-                            className="px-3 py-1 rounded-full bg-primary/10 text-primary text-sm"
+                            className="px-3 py-1 rounded-full bg-primary/20 text-primary text-sm border border-primary/20"
                           >
                             {place.name}
                           </span>
@@ -598,18 +598,18 @@ export default function CreateTrip() {
                     </div>
                   </div>
 
-                  <hr className="border-border" />
+                  <hr className="border-white/10" />
 
                   {/* Budget */}
-                  <div className="p-4 rounded-xl bg-gradient-to-r from-primary/10 to-accent/10">
+                  <div className="p-4 rounded-xl bg-gradient-to-r from-primary/20 to-accent/20 border border-white/5">
                     <div className="flex items-center gap-2 mb-2">
                       <Sparkles className="w-5 h-5 text-primary" />
-                      <p className="text-sm text-muted-foreground">Estimated Budget</p>
+                      <p className="text-sm text-white/70">Estimated Budget</p>
                     </div>
-                    <p className="text-3xl font-bold text-foreground">
+                    <p className="text-3xl font-bold text-white">
                       ₹{calculateBudget().toLocaleString('en-IN')}
                     </p>
-                    <p className="text-sm text-muted-foreground mt-1">
+                    <p className="text-sm text-white/50 mt-1">
                       Includes accommodation, transport, food & activities
                     </p>
                   </div>
@@ -624,34 +624,36 @@ export default function CreateTrip() {
               variant="ghost"
               onClick={goBack}
               disabled={step === 'destination'}
+              className="text-white hover:text-white hover:bg-white/10 disabled:text-white/20"
             >
-              <ArrowLeft className="w-4 h-4" />
+              <ArrowLeft className="w-4 h-4 mr-2" />
               Back
             </Button>
 
             {step === 'review' ? (
-              <Button variant="hero" onClick={createTrip} disabled={creating}>
+              <Button variant="hero" onClick={createTrip} disabled={creating} className="shadow-lg hover:shadow-primary/25">
                 {creating ? (
                   <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
                     Creating Trip...
                   </>
                 ) : (
                   <>
                     Create Trip
-                    <Sparkles className="w-4 h-4" />
+                    <Sparkles className="w-4 h-4 ml-2" />
                   </>
                 )}
               </Button>
             ) : (
-              <Button variant="hero" onClick={goNext} disabled={!canProceed()}>
+              <Button variant="hero" onClick={goNext} disabled={!canProceed()} className="shadow-lg hover:shadow-primary/25">
                 Continue
-                <ArrowRight className="w-4 h-4" />
+                <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
             )}
           </div>
         </div>
-      </main>
-    </div>
+      </div>
+    </main>
+
   );
 }
