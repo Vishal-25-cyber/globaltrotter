@@ -16,7 +16,8 @@ import {
   ArrowLeft,
   Check,
   Loader2,
-  Sparkles
+  Sparkles,
+  Search
 } from 'lucide-react';
 import { format, differenceInDays, addDays } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -29,10 +30,14 @@ interface City {
   avg_daily_budget_inr: number;
 }
 
+import { citiesData } from '@/data/cities';
+import { placesData } from '@/data/places';
+
 interface TouristPlace {
   id: string;
   name: string;
   description: string | null;
+  image_url: string | null;
   category: string;
   avg_time_hours: number;
   entry_fee_inr: number;
@@ -61,6 +66,7 @@ export default function CreateTrip() {
   const [startDate, setStartDate] = useState<Date>();
   const [endDate, setEndDate] = useState<Date>();
   const [selectedPlaces, setSelectedPlaces] = useState<string[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -119,10 +125,10 @@ export default function CreateTrip() {
         setEndDate(new Date(tripData.end_date));
         setSelectedCity(tripData.city);
         setTripTitle(tripData.title || '');
-        
+
         // Load places for this city
         await fetchPlaces(tripData.city.id);
-        
+
         // Fetch trip places (itinerary items)
         const { data: itineraryItems, error: itineraryError } = await supabase
           .from('itinerary_items')
@@ -135,7 +141,7 @@ export default function CreateTrip() {
           const placeIds = itineraryItems?.map(item => item.tourist_place_id) || [];
           setSelectedPlaces(placeIds);
         }
-        
+
         setStep('dates'); // Start at step 2 for editing
       }
     } catch (error: any) {
@@ -151,21 +157,71 @@ export default function CreateTrip() {
 
   const fetchCities = async () => {
     try {
-      const { data, error } = await supabase
+      let { data, error } = await supabase
         .from('cities')
         .select('id, name, country, image_url, avg_daily_budget_inr')
         .order('name');
 
       if (error) throw error;
-      setCities(data || []);
+
+      // Fallback: If DB has few cities, merge local data
+      if (!data || data.length < 50) {
+        const existingNames = new Set((data || []).map(c => c.name));
+        const missingCities = citiesData
+          .filter(c => !existingNames.has(c.name))
+          .map(c => ({
+            id: `seed-${c.name.toLowerCase().replace(/\s+/g, '-')}`,
+            name: c.name,
+            country: c.country,
+            image_url: c.image_url,
+            avg_daily_budget_inr: c.avg_daily_budget_inr
+          }));
+
+        data = [...(data as unknown as City[] || []), ...missingCities];
+      }
+
+      setCities(data as City[] || []);
     } catch (err) {
       console.error('Error fetching cities:', err);
+      // Fallback on full error
+      const allLocal = citiesData.map(c => ({
+        id: `seed-${c.name.toLowerCase().replace(/\s+/g, '-')}`,
+        name: c.name,
+        country: c.country,
+        image_url: c.image_url,
+        avg_daily_budget_inr: c.avg_daily_budget_inr
+      }));
+      setCities(allLocal);
     } finally {
       setLoading(false);
     }
   };
 
   const fetchPlaces = async (cityId: string) => {
+    // If it's a seed city, load from local data
+    if (cityId.startsWith('seed-')) {
+      const selectedCityName = cities.find(c => c.id === cityId)?.name;
+
+      if (selectedCityName) {
+        const localPlaces = placesData
+          .filter(p => p.cityName.toLowerCase() === selectedCityName.toLowerCase())
+          .map(p => ({
+            id: `seed-place-${p.name.replace(/\s+/g, '-').toLowerCase()}`,
+            name: p.name,
+            description: p.description,
+            image_url: p.image_url,
+            category: p.category,
+            entry_fee_inr: p.entry_fee_inr,
+            avg_time_hours: p.avg_time_hours,
+            best_time_to_visit: 'Year round'
+          }));
+        setPlaces(localPlaces);
+      } else {
+        setPlaces([]);
+      }
+      return;
+    }
+
     try {
       const { data, error } = await supabase
         .from('tourist_places')
@@ -206,16 +262,102 @@ export default function CreateTrip() {
     setCreating(true);
 
     try {
+      let finalCityId = selectedCity.id;
+
+      // If this is a seeded/local city (starts with 'seed-'), we must insert it into the DB first
+      if (selectedCity.id.startsWith('seed-')) {
+        const cityDataToInsert = {
+          name: selectedCity.name,
+          country: selectedCity.country,
+          image_url: selectedCity.image_url,
+          avg_daily_budget_inr: selectedCity.avg_daily_budget_inr,
+          description: 'A beautiful destination'
+        };
+
+        const { data: existing } = await supabase.from('cities').select('id').eq('name', selectedCity.name).single();
+
+        if (existing) {
+          finalCityId = existing.id;
+        } else {
+          const { data: newCity, error: cityInsertError } = await supabase
+            .from('cities')
+            .insert(cityDataToInsert)
+            .select()
+            .single();
+
+          if (cityInsertError) throw cityInsertError;
+          finalCityId = newCity.id;
+        }
+      }
+
       const title = tripTitle || `Trip to ${selectedCity.name}`;
       const totalBudget = calculateBudget();
       const days = differenceInDays(endDate, startDate) + 1;
+
+      const prepareItineraryItems = async (tripId: string) => {
+        const selectedPlaceData = places.filter(p => selectedPlaces.includes(p.id));
+        if (selectedPlaceData.length === 0) return;
+
+        const finalPlaces: TouristPlace[] = [];
+
+        for (const place of selectedPlaceData) {
+          let placeId = place.id;
+          if (place.id.startsWith('seed-')) {
+            // Check if place exists in DB
+            const { data: existing } = await supabase
+              .from('tourist_places')
+              .select('id')
+              .eq('city_id', finalCityId)
+              .eq('name', place.name)
+              .single();
+
+            if (existing) {
+              placeId = existing.id;
+            } else {
+              // Insert new place
+              const { data: newPlace, error } = await supabase
+                .from('tourist_places')
+                .insert({
+                  city_id: finalCityId,
+                  name: place.name,
+                  description: place.description,
+                  image_url: place.image_url,
+                  category: place.category,
+                  entry_fee_inr: place.entry_fee_inr,
+                  avg_time_hours: place.avg_time_hours,
+                  best_time_to_visit: place.best_time_to_visit || 'Year round'
+                })
+                .select()
+                .single();
+
+              if (error) throw error;
+              placeId = newPlace.id;
+            }
+          }
+          finalPlaces.push({ ...place, id: placeId });
+        }
+
+        const itemsPerDay = Math.ceil(finalPlaces.length / days);
+        const itineraryItems = finalPlaces.map((place, index) => ({
+          trip_id: tripId,
+          tourist_place_id: place.id,
+          day_number: Math.floor(index / itemsPerDay) + 1,
+          activity_name: place.name,
+          activity_description: place.description,
+          estimated_cost_inr: place.entry_fee_inr,
+          order_index: index % itemsPerDay
+        }));
+
+        const { error: itemsError } = await supabase.from('itinerary_items').insert(itineraryItems);
+        if (itemsError) throw itemsError;
+      };
 
       if (isEditMode && editTripId) {
         // Update existing trip
         const { data: trip, error: tripError } = await supabase
           .from('trips')
           .update({
-            city_id: selectedCity.id,
+            city_id: finalCityId,
             start_date: format(startDate, 'yyyy-MM-dd'),
             end_date: format(endDate, 'yyyy-MM-dd'),
             total_budget_inr: totalBudget,
@@ -227,95 +369,33 @@ export default function CreateTrip() {
         if (tripError) throw tripError;
 
         // Delete existing itinerary items and create new ones
-        await supabase
-          .from('itinerary_items')
-          .delete()
-          .eq('trip_id', editTripId);
-
-        const selectedPlaceData = places.filter(p => selectedPlaces.includes(p.id));
-        const itemsPerDay = Math.ceil(selectedPlaceData.length / days);
-
-        const itineraryItems = selectedPlaceData.map((place, index) => ({
-          trip_id: editTripId,
-          tourist_place_id: place.id,
-          day_number: Math.floor(index / itemsPerDay) + 1,
-          activity_name: place.name,
-          activity_description: place.description,
-          estimated_cost_inr: place.entry_fee_inr,
-          order_index: index % itemsPerDay
-        }));
-
-        if (itineraryItems.length > 0) {
-          const { error: itemsError } = await supabase
-            .from('itinerary_items')
-            .insert(itineraryItems);
-
-          if (itemsError) throw itemsError;
-        }
+        await supabase.from('itinerary_items').delete().eq('trip_id', editTripId);
+        await prepareItineraryItems(editTripId);
 
         // Delete existing budget items and create new ones
-        await supabase
-          .from('budget_items')
-          .delete()
-          .eq('trip_id', editTripId);
+        await supabase.from('budget_items').delete().eq('trip_id', editTripId);
 
         const budgetItems = [
-          {
-            trip_id: editTripId,
-            category: 'accommodation' as const,
-            description: 'Hotel/Stay',
-            amount_inr: Math.round(days * selectedCity.avg_daily_budget_inr * 0.4),
-            is_estimated: true
-          },
-          {
-            trip_id: editTripId,
-            category: 'transport' as const,
-            description: 'Local transport & travel',
-            amount_inr: Math.round(days * selectedCity.avg_daily_budget_inr * 0.2),
-            is_estimated: true
-          },
-          {
-            trip_id: editTripId,
-            category: 'food' as const,
-            description: 'Meals & dining',
-            amount_inr: Math.round(days * selectedCity.avg_daily_budget_inr * 0.25),
-            is_estimated: true
-          },
-          {
-            trip_id: editTripId,
-            category: 'activities' as const,
-            description: 'Entry fees & activities',
-            amount_inr: places.filter(p => selectedPlaces.includes(p.id)).reduce((sum, p) => sum + p.entry_fee_inr, 0),
-            is_estimated: true
-          },
-          {
-            trip_id: editTripId,
-            category: 'miscellaneous' as const,
-            description: 'Shopping & miscellaneous',
-            amount_inr: Math.round(days * selectedCity.avg_daily_budget_inr * 0.15),
-            is_estimated: true
-          }
+          { trip_id: editTripId, category: 'accommodation' as const, description: 'Hotel/Stay', amount_inr: Math.round(days * selectedCity.avg_daily_budget_inr * 0.4), is_estimated: true },
+          { trip_id: editTripId, category: 'transport' as const, description: 'Local transport & travel', amount_inr: Math.round(days * selectedCity.avg_daily_budget_inr * 0.2), is_estimated: true },
+          { trip_id: editTripId, category: 'food' as const, description: 'Meals & dining', amount_inr: Math.round(days * selectedCity.avg_daily_budget_inr * 0.25), is_estimated: true },
+          { trip_id: editTripId, category: 'activities' as const, description: 'Entry fees & activities', amount_inr: places.filter(p => selectedPlaces.includes(p.id)).reduce((sum, p) => sum + p.entry_fee_inr, 0), is_estimated: true },
+          { trip_id: editTripId, category: 'miscellaneous' as const, description: 'Shopping & miscellaneous', amount_inr: Math.round(days * selectedCity.avg_daily_budget_inr * 0.15), is_estimated: true }
         ];
 
-        const { error: budgetError } = await supabase
-          .from('budget_items')
-          .insert(budgetItems);
-
+        const { error: budgetError } = await supabase.from('budget_items').insert(budgetItems);
         if (budgetError) throw budgetError;
 
-        toast({
-          title: 'Trip updated! ✨',
-          description: 'Your changes have been saved.',
-        });
-
+        toast({ title: 'Trip updated! ✨', description: 'Your changes have been saved.' });
         navigate('/dashboard');
+
       } else {
         // Create new trip
         const { data: trip, error: tripError } = await supabase
           .from('trips')
           .insert({
             user_id: user.id,
-            city_id: selectedCity.id,
+            city_id: finalCityId,
             title,
             start_date: format(startDate, 'yyyy-MM-dd'),
             end_date: format(endDate, 'yyyy-MM-dd'),
@@ -328,81 +408,25 @@ export default function CreateTrip() {
         if (tripError) throw tripError;
 
         // Create itinerary items
-        const selectedPlaceData = places.filter(p => selectedPlaces.includes(p.id));
-        const itemsPerDay = Math.ceil(selectedPlaceData.length / days);
-
-        const itineraryItems = selectedPlaceData.map((place, index) => ({
-          trip_id: trip.id,
-          tourist_place_id: place.id,
-          day_number: Math.floor(index / itemsPerDay) + 1,
-          activity_name: place.name,
-          activity_description: place.description,
-          estimated_cost_inr: place.entry_fee_inr,
-          order_index: index % itemsPerDay
-        }));
-
-        if (itineraryItems.length > 0) {
-          const { error: itemsError } = await supabase
-            .from('itinerary_items')
-            .insert(itineraryItems);
-
-          if (itemsError) throw itemsError;
-        }
+        await prepareItineraryItems(trip.id);
 
         // Create budget items
         const budgetItems = [
-          {
-            trip_id: trip.id,
-            category: 'accommodation' as const,
-            description: 'Hotel/Stay',
-            amount_inr: Math.round(days * selectedCity.avg_daily_budget_inr * 0.4),
-            is_estimated: true
-          },
-          {
-            trip_id: trip.id,
-            category: 'transport' as const,
-            description: 'Local transport & travel',
-            amount_inr: Math.round(days * selectedCity.avg_daily_budget_inr * 0.2),
-            is_estimated: true
-          },
-          {
-            trip_id: trip.id,
-            category: 'food' as const,
-            description: 'Meals & dining',
-            amount_inr: Math.round(days * selectedCity.avg_daily_budget_inr * 0.25),
-            is_estimated: true
-          },
-          {
-            trip_id: trip.id,
-            category: 'activities' as const,
-            description: 'Entry fees & activities',
-            amount_inr: places.filter(p => selectedPlaces.includes(p.id)).reduce((sum, p) => sum + p.entry_fee_inr, 0),
-            is_estimated: true
-          },
-          {
-            trip_id: trip.id,
-            category: 'miscellaneous' as const,
-            description: 'Shopping & miscellaneous',
-            amount_inr: Math.round(days * selectedCity.avg_daily_budget_inr * 0.15),
-            is_estimated: true
-          }
+          { trip_id: trip.id, category: 'accommodation' as const, description: 'Hotel/Stay', amount_inr: Math.round(days * selectedCity.avg_daily_budget_inr * 0.4), is_estimated: true },
+          { trip_id: trip.id, category: 'transport' as const, description: 'Local transport & travel', amount_inr: Math.round(days * selectedCity.avg_daily_budget_inr * 0.2), is_estimated: true },
+          { trip_id: trip.id, category: 'food' as const, description: 'Meals & dining', amount_inr: Math.round(days * selectedCity.avg_daily_budget_inr * 0.25), is_estimated: true },
+          { trip_id: trip.id, category: 'activities' as const, description: 'Entry fees & activities', amount_inr: places.filter(p => selectedPlaces.includes(p.id)).reduce((sum, p) => sum + p.entry_fee_inr, 0), is_estimated: true },
+          { trip_id: trip.id, category: 'miscellaneous' as const, description: 'Shopping & miscellaneous', amount_inr: Math.round(days * selectedCity.avg_daily_budget_inr * 0.15), is_estimated: true }
         ];
 
-        const { error: budgetError } = await supabase
-          .from('budget_items')
-          .insert(budgetItems);
-
+        const { error: budgetError } = await supabase.from('budget_items').insert(budgetItems);
         if (budgetError) throw budgetError;
 
-        toast({
-          title: 'Trip created! 🎉',
-          description: 'Your itinerary and budget are ready.',
-        });
-
+        toast({ title: 'Trip created! 🎉', description: 'Your itinerary and budget are ready.' });
         navigate(`/trip/${trip.id}`);
       }
     } catch (err) {
-      console.error('Error creating/updating trip:', err);
+      console.error('Error creating/updating trip:', JSON.stringify(err, null, 2));
       toast({
         title: isEditMode ? 'Failed to update trip' : 'Failed to create trip',
         description: 'Please try again.',
@@ -417,7 +441,7 @@ export default function CreateTrip() {
     switch (step) {
       case 'destination': return selectedCity !== null;
       case 'dates': return startDate && endDate && startDate <= endDate;
-      case 'places': return selectedPlaces.length > 0;
+      case 'places': return places.length === 0 || selectedPlaces.length > 0;
       case 'review': return true;
       default: return false;
     }
@@ -446,6 +470,8 @@ export default function CreateTrip() {
       </div>
     );
   }
+
+
 
   const days = startDate && endDate ? differenceInDays(endDate, startDate) + 1 : 0;
 
@@ -496,47 +522,63 @@ export default function CreateTrip() {
                   Choose your dream destination
                 </p>
 
+                {/* Search Bar */}
+                <div className="relative max-w-md mx-auto mb-8">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-white/50" />
+                  <Input
+                    placeholder="Search destinations (e.g. Paris, Goa)..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-10 bg-white/5 border-white/10 text-white placeholder:text-white/30 focus:bg-white/10 h-11 rounded-full backdrop-blur-sm transition-all focus:ring-2 focus:ring-primary/50"
+                  />
+                </div>
+
                 {loading ? (
                   <div className="flex justify-center py-12">
                     <Loader2 className="w-8 h-8 animate-spin text-primary" />
                   </div>
                 ) : (
                   <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {cities.map(city => (
-                      <button
-                        key={city.id}
-                        onClick={() => setSelectedCity(city)}
-                        className={cn(
-                          "relative rounded-2xl overflow-hidden h-40 transition-all border border-white/10",
-                          selectedCity?.id === city.id
-                            ? "ring-4 ring-primary ring-offset-2 ring-offset-black/20 scale-[1.02]"
-                            : "hover:scale-[1.02] hover:border-white/30"
-                        )}
-                      >
-                        {city.image_url ? (
-                          <img
-                            src={city.image_url}
-                            alt={city.name}
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <div className="w-full h-full bg-gradient-hero" />
-                        )}
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
-                        <div className="absolute bottom-4 left-4 right-4 text-left">
-                          <div className="flex items-center gap-1 text-white/80 text-sm">
-                            <MapPin className="w-3 h-3" />
-                            {city.country}
+                    {cities
+                      .filter(city =>
+                        city.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                        city.country.toLowerCase().includes(searchQuery.toLowerCase())
+                      )
+                      .map(city => (
+                        <button
+                          key={city.id}
+                          onClick={() => setSelectedCity(city)}
+                          className={cn(
+                            "relative rounded-2xl overflow-hidden h-40 transition-all border border-white/10",
+                            selectedCity?.id === city.id
+                              ? "ring-4 ring-primary ring-offset-2 ring-offset-black/20 scale-[1.02]"
+                              : "hover:scale-[1.02] hover:border-white/30"
+                          )}
+                        >
+                          {city.image_url ? (
+                            <img
+                              src={city.image_url}
+                              alt={city.name}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-full h-full bg-gradient-hero" />
+                          )}
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
+                          <div className="absolute bottom-4 left-4 right-4 text-left">
+                            <div className="flex items-center gap-1 text-white/80 text-sm">
+                              <MapPin className="w-3 h-3" />
+                              {city.country}
+                            </div>
+                            <h3 className="text-xl font-bold text-white">{city.name}</h3>
                           </div>
-                          <h3 className="text-xl font-bold text-white">{city.name}</h3>
-                        </div>
-                        {selectedCity?.id === city.id && (
-                          <div className="absolute top-3 right-3 w-6 h-6 rounded-full bg-primary flex items-center justify-center">
-                            <Check className="w-4 h-4 text-primary-foreground" />
-                          </div>
-                        )}
-                      </button>
-                    ))}
+                          {selectedCity?.id === city.id && (
+                            <div className="absolute top-3 right-3 w-6 h-6 rounded-full bg-primary flex items-center justify-center">
+                              <Check className="w-4 h-4 text-primary-foreground" />
+                            </div>
+                          )}
+                        </button>
+                      ))}
                   </div>
                 )}
               </div>

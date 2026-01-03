@@ -23,6 +23,7 @@ interface City {
   image_url: string | null;
   avg_daily_budget_inr: number;
   best_season: string | null;
+  created_at?: string;
 }
 
 import { citiesData } from '@/data/cities';
