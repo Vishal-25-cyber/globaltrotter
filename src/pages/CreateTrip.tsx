@@ -16,7 +16,8 @@ import {
   ArrowLeft,
   Check,
   Loader2,
-  Sparkles
+  Sparkles,
+  Search
 } from 'lucide-react';
 import { format, differenceInDays, addDays } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -52,6 +53,7 @@ export default function CreateTrip() {
   const [places, setPlaces] = useState<TouristPlace[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Form state
   const [selectedCity, setSelectedCity] = useState<City | null>(null);
@@ -286,6 +288,12 @@ export default function CreateTrip() {
 
   const days = startDate && endDate ? differenceInDays(endDate, startDate) + 1 : 0;
 
+  // Filter cities based on search query
+  const filteredCities = cities.filter(city => 
+    city.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    city.country.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
@@ -335,13 +343,46 @@ export default function CreateTrip() {
                   Choose your dream destination
                 </p>
 
+                {/* Search Bar */}
+                <div className="max-w-md mx-auto mb-8">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                    <Input
+                      type="text"
+                      placeholder="Search destinations..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="pl-10 py-6 text-base"
+                    />
+                  </div>
+                  {searchQuery && (
+                    <p className="text-sm text-muted-foreground mt-2">
+                      Found {filteredCities.length} destination{filteredCities.length !== 1 ? 's' : ''}
+                    </p>
+                  )}
+                </div>
+
                 {loading ? (
                   <div className="flex justify-center py-12">
                     <Loader2 className="w-8 h-8 animate-spin text-primary" />
                   </div>
+                ) : filteredCities.length === 0 ? (
+                  <div className="text-center py-12">
+                    <MapPin className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+                    <p className="text-lg text-muted-foreground">
+                      No destinations found matching "{searchQuery}"
+                    </p>
+                    <Button
+                      variant="link"
+                      onClick={() => setSearchQuery('')}
+                      className="mt-2"
+                    >
+                      Clear search
+                    </Button>
+                  </div>
                 ) : (
                   <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {cities.map(city => (
+                    {filteredCities.map(city => (
                       <button
                         key={city.id}
                         onClick={() => setSelectedCity(city)}
