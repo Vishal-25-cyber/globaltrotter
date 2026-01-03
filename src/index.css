@@ -1,0 +1,270 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* TripNex Design System - Travel-Inspired Theme */
+
+@layer base {
+  :root {
+    /* Core colors - Warm teal and coral adventure palette */
+    --background: 40 33% 98%;
+    --foreground: 200 25% 15%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 200 25% 15%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 200 25% 15%;
+
+    /* Primary - Deep adventurous teal */
+    --primary: 174 62% 30%;
+    --primary-foreground: 0 0% 100%;
+
+    /* Secondary - Warm sand */
+    --secondary: 35 45% 94%;
+    --secondary-foreground: 200 25% 15%;
+
+    /* Muted - Soft stone */
+    --muted: 40 20% 94%;
+    --muted-foreground: 200 15% 45%;
+
+    /* Accent - Warm coral for CTAs */
+    --accent: 15 85% 60%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 40 20% 88%;
+    --input: 40 20% 88%;
+    --ring: 174 62% 30%;
+
+    --radius: 0.75rem;
+
+    /* Custom travel theme tokens */
+    --gradient-hero: linear-gradient(135deg, hsl(174 62% 30%) 0%, hsl(174 45% 45%) 50%, hsl(35 60% 65%) 100%);
+    --gradient-warm: linear-gradient(135deg, hsl(15 85% 60%) 0%, hsl(35 80% 55%) 100%);
+    --gradient-ocean: linear-gradient(180deg, hsl(200 70% 50%) 0%, hsl(174 62% 30%) 100%);
+    --gradient-card: linear-gradient(145deg, hsl(0 0% 100%) 0%, hsl(40 33% 98%) 100%);
+
+    --shadow-soft: 0 4px 20px -4px hsl(200 25% 15% / 0.08);
+    --shadow-card: 0 8px 30px -8px hsl(200 25% 15% / 0.12);
+    --shadow-elevated: 0 20px 50px -12px hsl(200 25% 15% / 0.2);
+    --shadow-glow: 0 0 40px hsl(174 62% 30% / 0.15);
+
+    /* Sidebar */
+    --sidebar-background: 40 20% 97%;
+    --sidebar-foreground: 200 25% 25%;
+    --sidebar-primary: 174 62% 30%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 40 30% 94%;
+    --sidebar-accent-foreground: 200 25% 15%;
+    --sidebar-border: 40 20% 90%;
+    --sidebar-ring: 174 62% 30%;
+
+    /* Status colors */
+    --success: 152 60% 40%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+    --info: 200 80% 50%;
+    --info-foreground: 0 0% 100%;
+  }
+
+  .dark {
+    --background: 200 25% 8%;
+    --foreground: 40 20% 95%;
+
+    --card: 200 20% 12%;
+    --card-foreground: 40 20% 95%;
+
+    --popover: 200 20% 12%;
+    --popover-foreground: 40 20% 95%;
+
+    --primary: 174 55% 45%;
+    --primary-foreground: 200 25% 8%;
+
+    --secondary: 200 15% 18%;
+    --secondary-foreground: 40 20% 95%;
+
+    --muted: 200 15% 18%;
+    --muted-foreground: 40 15% 65%;
+
+    --accent: 15 80% 55%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 62% 45%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 200 15% 20%;
+    --input: 200 15% 20%;
+    --ring: 174 55% 45%;
+
+    --sidebar-background: 200 20% 10%;
+    --sidebar-foreground: 40 15% 90%;
+    --sidebar-primary: 174 55% 45%;
+    --sidebar-primary-foreground: 200 25% 8%;
+    --sidebar-accent: 200 15% 15%;
+    --sidebar-accent-foreground: 40 15% 90%;
+    --sidebar-border: 200 15% 18%;
+    --sidebar-ring: 174 55% 45%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-muted/50 rounded-full;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-muted-foreground/20 rounded-full hover:bg-muted-foreground/30 transition-colors;
+  }
+}
+
+@layer components {
+
+  /* Hero gradient text */
+  .text-gradient-hero {
+    background: var(--gradient-hero);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Warm accent gradient text */
+  .text-gradient-warm {
+    background: var(--gradient-warm);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Glass morphism card */
+  .glass-card {
+    @apply bg-card/80 backdrop-blur-xl border border-border/50;
+    box-shadow: var(--shadow-card);
+  }
+
+  /* Travel card with hover effect */
+  .travel-card {
+    @apply relative overflow-hidden rounded-2xl bg-card transition-all duration-500;
+    box-shadow: var(--shadow-soft);
+  }
+
+  .travel-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-elevated);
+  }
+
+  /* Animated gradient background */
+  .animated-gradient {
+    background: linear-gradient(-45deg, hsl(174 62% 30%), hsl(174 45% 45%), hsl(35 60% 65%), hsl(15 85% 60%));
+    background-size: 400% 400%;
+    animation: gradient-shift 15s ease infinite;
+  }
+
+  @keyframes gradient-shift {
+    0% {
+      background-position: 0% 50%;
+    }
+
+    50% {
+      background-position: 100% 50%;
+    }
+
+    100% {
+      background-position: 0% 50%;
+    }
+  }
+
+  /* Floating animation */
+  .float-animation {
+    animation: float 6s ease-in-out infinite;
+  }
+
+  @keyframes float {
+
+    0%,
+    100% {
+      transform: translateY(0px);
+    }
+
+    50% {
+      transform: translateY(-20px);
+    }
+  }
+
+  /* Pulse glow effect */
+  .pulse-glow {
+    animation: pulse-glow 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse-glow {
+
+    0%,
+    100% {
+      box-shadow: 0 0 20px hsl(174 62% 30% / 0.3);
+    }
+
+    50% {
+      box-shadow: 0 0 40px hsl(174 62% 30% / 0.5);
+    }
+  }
+
+  /* Budget category pills */
+  .budget-pill {
+    @apply inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-all duration-200;
+  }
+
+  .budget-pill-accommodation {
+    @apply bg-blue-100 text-blue-700;
+  }
+
+  .budget-pill-transport {
+    @apply bg-amber-100 text-amber-700;
+  }
+
+  .budget-pill-food {
+    @apply bg-green-100 text-green-700;
+  }
+
+  .budget-pill-activities {
+    @apply bg-purple-100 text-purple-700;
+  }
+
+  .budget-pill-shopping {
+    @apply bg-pink-100 text-pink-700;
+  }
+
+  .budget-pill-miscellaneous {
+    @apply bg-gray-100 text-gray-700;
+  }
+}
+
+@layer utilities {
+
+  /* Smooth page transitions */
+  .page-transition {
+    @apply transition-all duration-300 ease-out;
+  }
+
+  /* Text balance for headings */
+  .text-balance {
+    text-wrap: balance;
+  }
+}
