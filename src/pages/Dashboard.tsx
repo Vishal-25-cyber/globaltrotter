@@ -11,8 +11,19 @@ import {
   Wallet,
   ArrowRight,
   Loader2,
-  Plane
+  Plane,
+  MoreVertical,
+  Edit,
+  Eye,
+  Trash2
 } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 
 interface Trip {
@@ -32,6 +43,7 @@ interface Trip {
 export default function Dashboard() {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [trips, setTrips] = useState<Trip[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -46,6 +58,36 @@ export default function Dashboard() {
       fetchTrips();
     }
   }, [user]);
+
+  const handleDeleteTrip = async (tripId: string, tripTitle: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (!confirm(`Are you sure you want to delete "${tripTitle}"?`)) {
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('trips')
+        .delete()
+        .eq('id', tripId);
+
+      if (error) throw error;
+
+      setTrips(trips.filter(trip => trip.id !== tripId));
+      toast({
+        title: 'Trip deleted',
+        description: 'Your trip has been successfully deleted.',
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to delete trip',
+        variant: 'destructive',
+      });
+    }
+  };
 
   const fetchTrips = async () => {
     try {
@@ -135,42 +177,72 @@ export default function Dashboard() {
         ) : (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {trips.map((trip) => (
-              <Link
+              <div
                 key={trip.id}
-                to={`/trip/${trip.id}`}
-                className="travel-card group bg-black/20 backdrop-blur-md border border-white/10"
+                className="travel-card group bg-black/20 backdrop-blur-md border border-white/10 relative"
               >
                 {/* Image */}
-                <div className="relative h-48 overflow-hidden">
-                  {trip.city.image_url ? (
-                    <img
-                      src={trip.city.image_url}
-                      alt={trip.city.name}
-                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                    />
-                  ) : (
-                    <div className="w-full h-full bg-gradient-hero" />
-                  )}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
+                <Link to={`/trip/${trip.id}`} className="block">
+                  <div className="relative h-48 overflow-hidden">
+                    {trip.city.image_url ? (
+                      <img
+                        src={trip.city.image_url}
+                        alt={trip.city.name}
+                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-gradient-hero" />
+                    )}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
 
-                  {/* Status badge */}
-                  <div className="absolute top-4 right-4">
-                    <span className={`px-3 py-1 rounded-full text-xs font-medium capitalize ${getStatusColor(trip.status)}`}>
-                      {trip.status}
-                    </span>
-                  </div>
+                    {/* Status badge */}
+                    <div className="absolute top-4 right-4">
+                      <span className={`px-3 py-1 rounded-full text-xs font-medium capitalize ${getStatusColor(trip.status)}`}>
+                        {trip.status}
+                      </span>
+                    </div>
 
-                  {/* City name */}
-                  <div className="absolute bottom-4 left-4 right-4">
-                    <div className="flex items-center gap-2 text-white">
-                      <MapPin className="w-4 h-4" />
-                      <span className="font-medium">{trip.city.name}, {trip.city.country}</span>
+                    {/* Three-dot menu */}
+                    <div className="absolute top-4 left-4">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild onClick={(e) => e.preventDefault()}>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 p-0 bg-black/50 hover:bg-black/70 text-white backdrop-blur-sm"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="start" className="w-40">
+                          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); navigate(`/create-trip?tripId=${trip.id}`); }}>
+                            <Edit className="mr-2 h-4 w-4" />
+                            Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={(e) => handleDeleteTrip(trip.id, trip.title, e)}
+                            className="text-red-600 focus:text-red-600"
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+
+                    {/* City name */}
+                    <div className="absolute bottom-4 left-4 right-4">
+                      <div className="flex items-center gap-2 text-white">
+                        <MapPin className="w-4 h-4" />
+                        <span className="font-medium">{trip.city.name}, {trip.city.country}</span>
+                      </div>
                     </div>
                   </div>
-                </div>
+                </Link>
 
                 {/* Content */}
-                <div className="p-5">
+                <Link to={`/trip/${trip.id}`} className="block p-5">
                   <h3 className="text-lg font-semibold text-white mb-3 group-hover:text-primary transition-colors">
                     {trip.title}
                   </h3>
@@ -192,8 +264,8 @@ export default function Dashboard() {
                     View Details
                     <ArrowRight className="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" />
                   </div>
-                </div>
-              </Link>
+                </Link>
+              </div>
             ))}
           </div>
         )}

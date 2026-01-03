@@ -2,7 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const { v4: uuidv4 } = require('uuid');
 const bcrypt = require('bcryptjs');
-const { pool, initializeDatabase } = require('./db.cjs');
+const { pool, initializeDatabase } = require('./db-sqlite.cjs');
 
 const app = express();
 const PORT = 3001;
@@ -11,7 +11,11 @@ app.use(cors());
 app.use(express.json());
 
 // Initialize database
-initializeDatabase().catch(console.error);
+try {
+  initializeDatabase();
+} catch (error) {
+  console.error('Database initialization error:', error);
+}
 
 // Auth endpoints
 app.post('/api/auth/signup', async (req, res) => {
@@ -103,8 +107,20 @@ app.get('/api/trips', async (req, res) => {
 
 app.get('/api/trips/:id', async (req, res) => {
   try {
-    const [trips] = await pool.query('SELECT * FROM trips WHERE id = ?', [req.params.id]);
-    res.json(trips[0]);
+    const trips = await pool.query('SELECT * FROM trips WHERE id = ?', [req.params.id]);
+    if (!trips || trips.length === 0) {
+      return res.status(404).json({ error: 'Trip not found' });
+    }
+    
+    const trip = trips[0];
+    
+    // Get the city information
+    const cities = await pool.query('SELECT * FROM cities WHERE id = ?', [trip.destination_city_id]);
+    if (cities && cities.length > 0) {
+      trip.city = cities[0];
+    }
+    
+    res.json(trip);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

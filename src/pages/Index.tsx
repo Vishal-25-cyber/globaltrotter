@@ -34,8 +34,6 @@ export default function Index() {
       <div className="fixed inset-0 z-0 bg-black/40" /> {/* Removed blur for clarity */}
 
       <div className="relative z-10">
-        <Navbar />
-
         {/* Hero Section */}
         <section className="relative pt-32 pb-20 lg:pt-40 lg:pb-32 overflow-hidden">
           <div className="container mx-auto px-4">
@@ -58,7 +56,7 @@ export default function Index() {
 
                 <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start animate-fade-in-up" style={{ animationDelay: '0.1s' }}>
                   <Button asChild className="bg-white text-black hover:bg-white/90 font-bold px-8 h-12 text-lg rounded-full shadow-xl hover:shadow-2xl transition-all hover:scale-105">
-                    <Link to={user ? '/dashboard' : '/auth?mode=signup'}>
+                    <Link to={user ? '/dashboard' : '/auth'}>
                       {user ? 'Go to Dashboard' : 'Start Planning Free'}
                       <ArrowRight className="w-5 h-5 ml-2" />
                     </Link>

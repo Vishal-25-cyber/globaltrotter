@@ -52,6 +52,8 @@ export default function CreateTrip() {
   const [places, setPlaces] = useState<TouristPlace[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editTripId, setEditTripId] = useState<string | null>(null);
 
   // Form state
   const [selectedCity, setSelectedCity] = useState<City | null>(null);
@@ -71,12 +73,21 @@ export default function CreateTrip() {
   }, []);
 
   useEffect(() => {
-    const cityId = searchParams.get('city');
-    if (cityId && cities.length > 0) {
-      const city = cities.find(c => c.id === cityId);
-      if (city) {
-        setSelectedCity(city);
-        setStep('dates');
+    const tripId = searchParams.get('tripId');
+    if (tripId) {
+      setIsEditMode(true);
+      setEditTripId(tripId);
+      if (cities.length > 0) {
+        loadTripForEdit(tripId);
+      }
+    } else {
+      const cityId = searchParams.get('city');
+      if (cityId && cities.length > 0) {
+        const city = cities.find(c => c.id === cityId);
+        if (city) {
+          setSelectedCity(city);
+          setStep('dates');
+        }
       }
     }
   }, [searchParams, cities]);
@@ -86,6 +97,57 @@ export default function CreateTrip() {
       fetchPlaces(selectedCity.id);
     }
   }, [selectedCity]);
+
+  const loadTripForEdit = async (tripId: string) => {
+    try {
+      // Fetch trip data from Supabase
+      const { data: tripData, error } = await supabase
+        .from('trips')
+        .select(`
+          *,
+          city:cities(id, name, country, image_url, avg_daily_budget_inr)
+        `)
+        .eq('id', tripId)
+        .single();
+
+      if (error) throw error;
+      console.log('Loaded trip data:', tripData);
+
+      if (tripData) {
+        // Set the form data
+        setStartDate(new Date(tripData.start_date));
+        setEndDate(new Date(tripData.end_date));
+        setSelectedCity(tripData.city);
+        setTripTitle(tripData.title || '');
+        
+        // Load places for this city
+        await fetchPlaces(tripData.city.id);
+        
+        // Fetch trip places (itinerary items)
+        const { data: itineraryItems, error: itineraryError } = await supabase
+          .from('itinerary_items')
+          .select('tourist_place_id')
+          .eq('trip_id', tripId);
+
+        if (itineraryError) {
+          console.error('Error loading itinerary:', itineraryError);
+        } else {
+          const placeIds = itineraryItems?.map(item => item.tourist_place_id) || [];
+          setSelectedPlaces(placeIds);
+        }
+        
+        setStep('dates'); // Start at step 2 for editing
+      }
+    } catch (error: any) {
+      console.error('Error loading trip:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load trip data: ' + error.message,
+        variant: 'destructive',
+      });
+      navigate('/dashboard');
+    }
+  };
 
   const fetchCities = async () => {
     try {
@@ -148,100 +210,201 @@ export default function CreateTrip() {
       const totalBudget = calculateBudget();
       const days = differenceInDays(endDate, startDate) + 1;
 
-      // Create trip
-      const { data: trip, error: tripError } = await supabase
-        .from('trips')
-        .insert({
-          user_id: user.id,
-          city_id: selectedCity.id,
-          title,
-          start_date: format(startDate, 'yyyy-MM-dd'),
-          end_date: format(endDate, 'yyyy-MM-dd'),
-          total_budget_inr: totalBudget,
-          status: 'planning'
-        })
-        .select()
-        .single();
+      if (isEditMode && editTripId) {
+        // Update existing trip
+        const { data: trip, error: tripError } = await supabase
+          .from('trips')
+          .update({
+            city_id: selectedCity.id,
+            start_date: format(startDate, 'yyyy-MM-dd'),
+            end_date: format(endDate, 'yyyy-MM-dd'),
+            total_budget_inr: totalBudget,
+          })
+          .eq('id', editTripId)
+          .select()
+          .single();
 
-      if (tripError) throw tripError;
+        if (tripError) throw tripError;
 
-      // Create itinerary items
-      const selectedPlaceData = places.filter(p => selectedPlaces.includes(p.id));
-      const itemsPerDay = Math.ceil(selectedPlaceData.length / days);
-
-      const itineraryItems = selectedPlaceData.map((place, index) => ({
-        trip_id: trip.id,
-        tourist_place_id: place.id,
-        day_number: Math.floor(index / itemsPerDay) + 1,
-        activity_name: place.name,
-        activity_description: place.description,
-        estimated_cost_inr: place.entry_fee_inr,
-        order_index: index % itemsPerDay
-      }));
-
-      if (itineraryItems.length > 0) {
-        const { error: itemsError } = await supabase
+        // Delete existing itinerary items and create new ones
+        await supabase
           .from('itinerary_items')
-          .insert(itineraryItems);
+          .delete()
+          .eq('trip_id', editTripId);
 
-        if (itemsError) throw itemsError;
-      }
+        const selectedPlaceData = places.filter(p => selectedPlaces.includes(p.id));
+        const itemsPerDay = Math.ceil(selectedPlaceData.length / days);
 
-      // Create budget items
-      const budgetItems = [
-        {
-          trip_id: trip.id,
-          category: 'accommodation' as const,
-          description: 'Hotel/Stay',
-          amount_inr: Math.round(days * selectedCity.avg_daily_budget_inr * 0.4),
-          is_estimated: true
-        },
-        {
-          trip_id: trip.id,
-          category: 'transport' as const,
-          description: 'Local transport & travel',
-          amount_inr: Math.round(days * selectedCity.avg_daily_budget_inr * 0.2),
-          is_estimated: true
-        },
-        {
-          trip_id: trip.id,
-          category: 'food' as const,
-          description: 'Meals & dining',
-          amount_inr: Math.round(days * selectedCity.avg_daily_budget_inr * 0.25),
-          is_estimated: true
-        },
-        {
-          trip_id: trip.id,
-          category: 'activities' as const,
-          description: 'Entry fees & activities',
-          amount_inr: places.filter(p => selectedPlaces.includes(p.id)).reduce((sum, p) => sum + p.entry_fee_inr, 0),
-          is_estimated: true
-        },
-        {
-          trip_id: trip.id,
-          category: 'miscellaneous' as const,
-          description: 'Shopping & miscellaneous',
-          amount_inr: Math.round(days * selectedCity.avg_daily_budget_inr * 0.15),
-          is_estimated: true
+        const itineraryItems = selectedPlaceData.map((place, index) => ({
+          trip_id: editTripId,
+          tourist_place_id: place.id,
+          day_number: Math.floor(index / itemsPerDay) + 1,
+          activity_name: place.name,
+          activity_description: place.description,
+          estimated_cost_inr: place.entry_fee_inr,
+          order_index: index % itemsPerDay
+        }));
+
+        if (itineraryItems.length > 0) {
+          const { error: itemsError } = await supabase
+            .from('itinerary_items')
+            .insert(itineraryItems);
+
+          if (itemsError) throw itemsError;
         }
-      ];
 
-      const { error: budgetError } = await supabase
-        .from('budget_items')
-        .insert(budgetItems);
+        // Delete existing budget items and create new ones
+        await supabase
+          .from('budget_items')
+          .delete()
+          .eq('trip_id', editTripId);
 
-      if (budgetError) throw budgetError;
+        const budgetItems = [
+          {
+            trip_id: editTripId,
+            category: 'accommodation' as const,
+            description: 'Hotel/Stay',
+            amount_inr: Math.round(days * selectedCity.avg_daily_budget_inr * 0.4),
+            is_estimated: true
+          },
+          {
+            trip_id: editTripId,
+            category: 'transport' as const,
+            description: 'Local transport & travel',
+            amount_inr: Math.round(days * selectedCity.avg_daily_budget_inr * 0.2),
+            is_estimated: true
+          },
+          {
+            trip_id: editTripId,
+            category: 'food' as const,
+            description: 'Meals & dining',
+            amount_inr: Math.round(days * selectedCity.avg_daily_budget_inr * 0.25),
+            is_estimated: true
+          },
+          {
+            trip_id: editTripId,
+            category: 'activities' as const,
+            description: 'Entry fees & activities',
+            amount_inr: places.filter(p => selectedPlaces.includes(p.id)).reduce((sum, p) => sum + p.entry_fee_inr, 0),
+            is_estimated: true
+          },
+          {
+            trip_id: editTripId,
+            category: 'miscellaneous' as const,
+            description: 'Shopping & miscellaneous',
+            amount_inr: Math.round(days * selectedCity.avg_daily_budget_inr * 0.15),
+            is_estimated: true
+          }
+        ];
 
-      toast({
-        title: 'Trip created! 🎉',
-        description: 'Your itinerary and budget are ready.',
-      });
+        const { error: budgetError } = await supabase
+          .from('budget_items')
+          .insert(budgetItems);
 
-      navigate(`/trip/${trip.id}`);
+        if (budgetError) throw budgetError;
+
+        toast({
+          title: 'Trip updated! ✨',
+          description: 'Your changes have been saved.',
+        });
+
+        navigate('/dashboard');
+      } else {
+        // Create new trip
+        const { data: trip, error: tripError } = await supabase
+          .from('trips')
+          .insert({
+            user_id: user.id,
+            city_id: selectedCity.id,
+            title,
+            start_date: format(startDate, 'yyyy-MM-dd'),
+            end_date: format(endDate, 'yyyy-MM-dd'),
+            total_budget_inr: totalBudget,
+            status: 'planning'
+          })
+          .select()
+          .single();
+
+        if (tripError) throw tripError;
+
+        // Create itinerary items
+        const selectedPlaceData = places.filter(p => selectedPlaces.includes(p.id));
+        const itemsPerDay = Math.ceil(selectedPlaceData.length / days);
+
+        const itineraryItems = selectedPlaceData.map((place, index) => ({
+          trip_id: trip.id,
+          tourist_place_id: place.id,
+          day_number: Math.floor(index / itemsPerDay) + 1,
+          activity_name: place.name,
+          activity_description: place.description,
+          estimated_cost_inr: place.entry_fee_inr,
+          order_index: index % itemsPerDay
+        }));
+
+        if (itineraryItems.length > 0) {
+          const { error: itemsError } = await supabase
+            .from('itinerary_items')
+            .insert(itineraryItems);
+
+          if (itemsError) throw itemsError;
+        }
+
+        // Create budget items
+        const budgetItems = [
+          {
+            trip_id: trip.id,
+            category: 'accommodation' as const,
+            description: 'Hotel/Stay',
+            amount_inr: Math.round(days * selectedCity.avg_daily_budget_inr * 0.4),
+            is_estimated: true
+          },
+          {
+            trip_id: trip.id,
+            category: 'transport' as const,
+            description: 'Local transport & travel',
+            amount_inr: Math.round(days * selectedCity.avg_daily_budget_inr * 0.2),
+            is_estimated: true
+          },
+          {
+            trip_id: trip.id,
+            category: 'food' as const,
+            description: 'Meals & dining',
+            amount_inr: Math.round(days * selectedCity.avg_daily_budget_inr * 0.25),
+            is_estimated: true
+          },
+          {
+            trip_id: trip.id,
+            category: 'activities' as const,
+            description: 'Entry fees & activities',
+            amount_inr: places.filter(p => selectedPlaces.includes(p.id)).reduce((sum, p) => sum + p.entry_fee_inr, 0),
+            is_estimated: true
+          },
+          {
+            trip_id: trip.id,
+            category: 'miscellaneous' as const,
+            description: 'Shopping & miscellaneous',
+            amount_inr: Math.round(days * selectedCity.avg_daily_budget_inr * 0.15),
+            is_estimated: true
+          }
+        ];
+
+        const { error: budgetError } = await supabase
+          .from('budget_items')
+          .insert(budgetItems);
+
+        if (budgetError) throw budgetError;
+
+        toast({
+          title: 'Trip created! 🎉',
+          description: 'Your itinerary and budget are ready.',
+        });
+
+        navigate(`/trip/${trip.id}`);
+      }
     } catch (err) {
-      console.error('Error creating trip:', err);
+      console.error('Error creating/updating trip:', err);
       toast({
-        title: 'Failed to create trip',
+        title: isEditMode ? 'Failed to update trip' : 'Failed to create trip',
         description: 'Please try again.',
         variant: 'destructive'
       });
@@ -416,7 +579,7 @@ export default function CreateTrip() {
                             {startDate ? format(startDate, 'PPP') : 'Pick a date'}
                           </Button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0 bg-zinc-900 border-white/10 text-white">
+                        <PopoverContent className="w-auto p-0 bg-zinc-800/95 backdrop-blur-sm border-white/20 text-white shadow-xl">
                           <Calendar
                             mode="single"
                             selected={startDate}
@@ -428,7 +591,7 @@ export default function CreateTrip() {
                             }}
                             disabled={(date) => date < new Date()}
                             initialFocus
-                            className="bg-zinc-900 text-white"
+                            className="bg-transparent text-white"
                           />
                         </PopoverContent>
                       </Popover>
@@ -449,14 +612,14 @@ export default function CreateTrip() {
                             {endDate ? format(endDate, 'PPP') : 'Pick a date'}
                           </Button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0 bg-zinc-900 border-white/10 text-white">
+                        <PopoverContent className="w-auto p-0 bg-zinc-800/95 backdrop-blur-sm border-white/20 text-white shadow-xl">
                           <Calendar
                             mode="single"
                             selected={endDate}
                             onSelect={setEndDate}
                             disabled={(date) => date < (startDate || new Date())}
                             initialFocus
-                            className="bg-zinc-900 text-white"
+                            className="bg-transparent text-white"
                           />
                         </PopoverContent>
                       </Popover>
@@ -464,8 +627,8 @@ export default function CreateTrip() {
                   </div>
 
                   {days > 0 && (
-                    <div className="text-center p-4 rounded-xl bg-primary/10 border border-primary/20">
-                      <p className="text-primary font-semibold">
+                    <div className="text-center p-4 rounded-xl bg-gradient-to-r from-primary/20 to-purple-500/20 border border-primary/30 shadow-lg">
+                      <p className="text-white font-semibold text-lg">
                         {days} {days === 1 ? 'day' : 'days'} trip
                       </p>
                     </div>
@@ -635,11 +798,11 @@ export default function CreateTrip() {
                 {creating ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                    Creating Trip...
+                    {isEditMode ? 'Saving Changes...' : 'Creating Trip...'}
                   </>
                 ) : (
                   <>
-                    Create Trip
+                    {isEditMode ? 'Save Changes' : 'Create Trip'}
                     <Sparkles className="w-4 h-4 ml-2" />
                   </>
                 )}
