@@ -4,7 +4,7 @@ import { Navbar } from '@/components/Navbar';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
+import { api } from '@/lib/api';
 import { 
   MapPin, 
   Calendar,
@@ -110,38 +110,19 @@ export default function TripDetails() {
   const fetchTripDetails = async () => {
     try {
       // Fetch trip
-      const { data: tripData, error: tripError } = await supabase
-        .from('trips')
-        .select(`
-          *,
-          city:cities(name, country, image_url)
-        `)
-        .eq('id', id)
-        .single();
+      const { data: tripData, error: tripError } = await api.getTrip(id!);
 
       if (tripError) throw tripError;
       setTrip(tripData as unknown as Trip);
 
       // Fetch itinerary
-      const { data: itineraryData, error: itineraryError } = await supabase
-        .from('itinerary_items')
-        .select(`
-          *,
-          tourist_place:tourist_places(category, avg_time_hours, best_time_to_visit)
-        `)
-        .eq('trip_id', id)
-        .order('day_number')
-        .order('order_index');
+      const { data: itineraryData, error: itineraryError } = await api.getItineraryItems(id!);
 
       if (itineraryError) throw itineraryError;
       setItinerary(itineraryData as unknown as ItineraryItem[]);
 
       // Fetch budget
-      const { data: budgetData, error: budgetError } = await supabase
-        .from('budget_items')
-        .select('*')
-        .eq('trip_id', id)
-        .order('amount_inr', { ascending: false });
+      const { data: budgetData, error: budgetError } = await api.getBudgetItems(id!);
 
       if (budgetError) throw budgetError;
       setBudget(budgetData);
@@ -163,10 +144,7 @@ export default function TripDetails() {
     setSharing(true);
 
     try {
-      const { error } = await supabase
-        .from('trips')
-        .update({ is_public: !trip.is_public })
-        .eq('id', trip.id);
+      const { error } = await api.updateTrip(trip.id, { is_public: !trip.is_public });
 
       if (error) throw error;
 

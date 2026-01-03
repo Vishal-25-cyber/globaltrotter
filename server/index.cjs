@@ -110,6 +110,22 @@ app.get('/api/trips/:id', async (req, res) => {
   }
 });
 
+// Get trip by share code (for public sharing)
+app.get('/api/trips/shared/:shareCode', async (req, res) => {
+  try {
+    const [trips] = await pool.query(
+      'SELECT * FROM trips WHERE share_code = ? AND is_public = true',
+      [req.params.shareCode]
+    );
+    if (trips.length === 0) {
+      return res.status(404).json({ error: 'Trip not found or not public' });
+    }
+    res.json(trips[0]);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.post('/api/trips', async (req, res) => {
   try {
     const { user_id, city_id, title, start_date, end_date, total_budget_inr, notes } = req.body;

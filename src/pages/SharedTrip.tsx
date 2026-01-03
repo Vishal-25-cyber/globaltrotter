@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Navbar } from '@/components/Navbar';
 import { Button } from '@/components/ui/button';
-import { supabase } from '@/integrations/supabase/client';
+import { api } from '@/lib/api';
 import { 
   MapPin, 
   Calendar,
@@ -88,19 +88,7 @@ export default function SharedTrip() {
   const fetchSharedTrip = async () => {
     try {
       // Fetch trip by share code
-      const { data: tripData, error: tripError } = await supabase
-        .from('trips')
-        .select(`
-          id,
-          title,
-          start_date,
-          end_date,
-          total_budget_inr,
-          city:cities(name, country, image_url)
-        `)
-        .eq('share_code', shareCode)
-        .eq('is_public', true)
-        .single();
+      const { data: tripData, error: tripError } = await api.getSharedTrip(shareCode!);
 
       if (tripError || !tripData) {
         setNotFound(true);
@@ -110,24 +98,12 @@ export default function SharedTrip() {
       setTrip(tripData as unknown as Trip);
 
       // Fetch itinerary
-      const { data: itineraryData } = await supabase
-        .from('itinerary_items')
-        .select(`
-          *,
-          tourist_place:tourist_places(category, avg_time_hours, best_time_to_visit)
-        `)
-        .eq('trip_id', tripData.id)
-        .order('day_number')
-        .order('order_index');
+      const { data: itineraryData } = await api.getItineraryItems(tripData.id);
 
       setItinerary(itineraryData as unknown as ItineraryItem[] || []);
 
       // Fetch budget
-      const { data: budgetData } = await supabase
-        .from('budget_items')
-        .select('*')
-        .eq('trip_id', tripData.id)
-        .order('amount_inr', { ascending: false });
+      const { data: budgetData } = await api.getBudgetItems(tripData.id);
 
       setBudget(budgetData || []);
 

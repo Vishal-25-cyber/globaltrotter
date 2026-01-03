@@ -40,7 +40,7 @@ interface TouristPlace {
   best_time_to_visit: string | null;
 }
 
-type Step = 'destination' | 'dates' | 'places' | 'review';
+type Step = 'travelers' | 'destination' | 'dates' | 'places' | 'review';
 
 export default function CreateTrip() {
   const { user, loading: authLoading } = useAuth();
@@ -48,7 +48,7 @@ export default function CreateTrip() {
   const [searchParams] = useSearchParams();
   const { toast } = useToast();
 
-  const [step, setStep] = useState<Step>('destination');
+  const [step, setStep] = useState<Step>('travelers');
   const [cities, setCities] = useState<City[]>([]);
   const [places, setPlaces] = useState<TouristPlace[]>([]);
   const [loading, setLoading] = useState(true);
@@ -56,6 +56,7 @@ export default function CreateTrip() {
   const [searchQuery, setSearchQuery] = useState('');
 
   // Form state
+  const [numberOfTravelers, setNumberOfTravelers] = useState(1);
   const [selectedCity, setSelectedCity] = useState<City | null>(null);
   const [tripTitle, setTripTitle] = useState('');
   const [startDate, setStartDate] = useState<Date>();
@@ -125,10 +126,10 @@ export default function CreateTrip() {
     if (!startDate || !endDate || !selectedCity) return 0;
     
     const days = differenceInDays(endDate, startDate) + 1;
-    const dailyBudget = selectedCity.avg_daily_budget_inr;
+    const dailyBudget = selectedCity.avg_daily_budget_inr * numberOfTravelers;
     const placeFees = places
       .filter(p => selectedPlaces.includes(p.id))
-      .reduce((sum, p) => sum + p.entry_fee_inr, 0);
+      .reduce((sum, p) => sum + (p.entry_fee_inr * numberOfTravelers), 0);
     
     return (days * dailyBudget) + placeFees;
   };
@@ -239,6 +240,7 @@ export default function CreateTrip() {
 
   const canProceed = () => {
     switch (step) {
+      case 'travelers': return numberOfTravelers > 0;
       case 'destination': return selectedCity !== null;
       case 'dates': return startDate && endDate && startDate <= endDate;
       case 'places': return selectedPlaces.length > 0;
@@ -248,7 +250,7 @@ export default function CreateTrip() {
   };
 
   const goNext = () => {
-    const steps: Step[] = ['destination', 'dates', 'places', 'review'];
+    const steps: Step[] = ['travelers', 'destination', 'dates', 'places', 'review'];
     const currentIndex = steps.indexOf(step);
     if (currentIndex < steps.length - 1) {
       setStep(steps[currentIndex + 1]);
@@ -256,7 +258,7 @@ export default function CreateTrip() {
   };
 
   const goBack = () => {
-    const steps: Step[] = ['destination', 'dates', 'places', 'review'];
+    const steps: Step[] = ['travelers', 'destination', 'dates', 'places', 'review'];
     const currentIndex = steps.indexOf(step);
     if (currentIndex > 0) {
       setStep(steps[currentIndex - 1]);
@@ -273,11 +275,13 @@ export default function CreateTrip() {
 
   const days = startDate && endDate ? differenceInDays(endDate, startDate) + 1 : 0;
 
-  // Filter cities based on search query
-  const filteredCities = cities.filter(city => 
-    city.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    city.country.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Filter cities based on search query, limit to popular ones if no search
+  const filteredCities = searchQuery 
+    ? cities.filter(city => 
+        city.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        city.country.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+    : cities.slice(0, 12); // Show only first 12 popular cities
 
   return (
     <div className="min-h-screen bg-background">
@@ -285,30 +289,28 @@ export default function CreateTrip() {
 
       <main className="pt-24 pb-16">
         <div className="container mx-auto px-4 max-w-4xl">
-          {/* Progress */}
-          <div className="flex items-center justify-center gap-2 mb-12">
-            {['destination', 'dates', 'places', 'review'].map((s, i) => (
+          {/* Ptravelers', 'destination', 'dates', 'places', 'review'].map((s, i) => (
               <div key={s} className="flex items-center">
                 <div
                   className={cn(
                     "w-10 h-10 rounded-full flex items-center justify-center text-sm font-semibold transition-all",
                     step === s
                       ? "bg-primary text-primary-foreground"
-                      : ['destination', 'dates', 'places', 'review'].indexOf(step) > i
+                      : ['travelers', 'destination', 'dates', 'places', 'review'].indexOf(step) > i
                       ? "bg-primary/20 text-primary"
                       : "bg-muted text-muted-foreground"
                   )}
                 >
-                  {['destination', 'dates', 'places', 'review'].indexOf(step) > i ? (
+                  {['travelers', 'destination', 'dates', 'places', 'review'].indexOf(step) > i ? (
                     <Check className="w-5 h-5" />
                   ) : (
                     i + 1
                   )}
                 </div>
-                {i < 3 && (
+                {i < 4 && (
                   <div className={cn(
                     "w-12 h-1 mx-1 rounded-full",
-                    ['destination', 'dates', 'places', 'review'].indexOf(step) > i
+                    ['travelers', 'destination', 'dates', 'places', 'review'].indexOf(step) > i
                       ? "bg-primary/40"
                       : "bg-muted"
                   )} />
@@ -319,13 +321,62 @@ export default function CreateTrip() {
 
           {/* Step Content */}
           <div className="animate-fade-in">
+            {step === 'travelers' && (
+              <div className="max-w-md mx-auto">
+                <h1 className="text-3xl font-bold text-foreground text-center mb-2">
+                  How many travelers?
+                </h1>
+                <p className="text-muted-foreground text-center mb-8">
+                  Tell us the number of people traveling
+                </p>
+
+                <div className="space-y-6">
+                  <div className="flex items-center justify-center gap-4">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      className="h-12 w-12"
+                      onClick={() => setNumberOfTravelers(Math.max(1, numberOfTravelers - 1))}
+                      disabled={numberOfTravelers <= 1}
+                    >
+                      <span className="text-xl">-</span>
+                    </Button>
+                    
+                    <div className="text-center">
+                      <div className="text-5xl font-bold text-primary">{numberOfTravelers}</div>
+                      <div className="text-sm text-muted-foreground mt-1">
+                        {numberOfTravelers === 1 ? 'traveler' : 'travelers'}
+                      </div>
+                    </div>
+                    
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      className="h-12 w-12"
+                      onClick={() => setNumberOfTravelers(numberOfTravelers + 1)}
+                    >
+                      <span className="text-xl">+</span>
+                    </Button>
+                  </div>
+
+                  <div className="bg-muted/50 rounded-lg p-4 text-center">
+                    <p className="text-sm text-muted-foreground">
+                      Budget calculations will be based on {numberOfTravelers} {numberOfTravelers === 1 ? 'person' : 'people'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {step === 'destination' && (
               <div>
                 <h1 className="text-3xl font-bold text-foreground text-center mb-2">
                   Where do you want to go?
                 </h1>
                 <p className="text-muted-foreground text-center mb-8">
-                  Choose your dream destination
+                  {searchQuery ? 'Search results' : 'Popular destinations'}
                 </p>
 
                 {/* Search Bar */}

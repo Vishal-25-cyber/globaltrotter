@@ -87,10 +87,11 @@ export default function Auth() {
           }
         } else {
           toast({
-            title: 'Welcome to GlobeTrotter! 🌍',
-            description: 'Your account has been created successfully.',
+            title: 'Account created successfully! 🌍',
+            description: 'Please sign in to continue.',
           });
-          navigate('/dashboard');
+          setIsSignUp(false);
+          setPassword('');
         }
       } else {
         const { error } = await signIn(email, password);

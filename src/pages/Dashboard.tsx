@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Navbar } from '@/components/Navbar';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
+import { api } from '@/lib/api';
 import { 
   Plus, 
   MapPin, 
@@ -49,19 +49,7 @@ export default function Dashboard() {
 
   const fetchTrips = async () => {
     try {
-      const { data, error } = await supabase
-        .from('trips')
-        .select(`
-          id,
-          title,
-          start_date,
-          end_date,
-          status,
-          total_budget_inr,
-          city:cities(name, country, image_url)
-        `)
-        .eq('user_id', user?.id)
-        .order('created_at', { ascending: false });
+      const { data, error } = await api.getTrips(user?.id!);
 
       if (error) throw error;
       setTrips(data as unknown as Trip[]);
